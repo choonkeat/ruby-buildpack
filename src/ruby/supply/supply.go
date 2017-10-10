@@ -137,12 +137,12 @@ func Run(s *Supplier) error {
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(s.Stager.BuildDir(), ".skip-gem-install")); err != nil {
-		if err := s.InstallGems(); err != nil {
-			s.Log.Error("Unable to install gems: %s", err.Error())
-			return err
-		}
+	// if _, err := os.Stat(filepath.Join(s.Stager.BuildDir(), ".skip-gem-install")); err != nil {
+	if err := s.InstallGems(); err != nil {
+		s.Log.Error("Unable to install gems: %s", err.Error())
+		return err
 	}
+	// }
 
 	if err := s.RewriteShebangs(); err != nil {
 		s.Log.Error("Unable to rewrite shebangs: %s", err.Error())
