@@ -137,10 +137,12 @@ func Run(s *Supplier) error {
 		}
 	}
 
+	// if _, err := os.Stat(filepath.Join(s.Stager.BuildDir(), ".skip-gem-install")); err != nil {
 	if err := s.InstallGems(); err != nil {
 		s.Log.Error("Unable to install gems: %s", err.Error())
 		return err
 	}
+	// }
 
 	if err := s.RewriteShebangs(); err != nil {
 		s.Log.Error("Unable to rewrite shebangs: %s", err.Error())
@@ -463,6 +465,8 @@ func (s *Supplier) copyDirToTemp(dir string) (string, error) {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		s.Log.Error(string(output))
 		return "", fmt.Errorf("Could not copy build dir to temp: %v", err)
+	} else {
+		s.Log.Info(string(output))
 	}
 	tempDir = filepath.Join(tempDir, filepath.Base(dir))
 	return tempDir, nil
@@ -496,15 +500,30 @@ func (s *Supplier) InstallGems() error {
 	if exists, err := libbuildpack.FileExists(filepath.Join(tempDir, ".bundle", "config")); err != nil {
 		return err
 	} else if exists {
+		oldbundleconfig, _ := ioutil.ReadFile(filepath.Join(tempDir, ".bundle", "config"))
+		s.Log.Info("OLD %s: %s", filepath.Join(tempDir, ".bundle", "config"), string(oldbundleconfig))
+
 		os.Remove(filepath.Join(tempDir, ".bundle", "config"))
 		libbuildpack.CopyFile(filepath.Join(s.Stager.BuildDir(), ".bundle", "config"), filepath.Join(tempDir, ".bundle", "config"))
+
+		newbundleconfig, _ := ioutil.ReadFile(filepath.Join(tempDir, ".bundle", "config"))
+		s.Log.Info("NEW %s: %s", filepath.Join(tempDir, ".bundle", "config"), string(newbundleconfig))
+	}
+
+	if files, err := ioutil.ReadDir(s.Stager.DepDir()); err != nil {
+		s.Log.Info("reading %s: %s", s.Stager.DepDir(), err.Error())
+	} else {
+		s.Log.Info("reading %s", s.Stager.DepDir())
+		for i, f := range files {
+			s.Log.Info("%d) %s %d %s", i, f.Name(), f.Size(), f.Mode())
+		}
 	}
 
 	args := []string{"install", "--without", os.Getenv("BUNDLE_WITHOUT"), "--jobs=4", "--retry=4", "--path", filepath.Join(s.Stager.DepDir(), "vendor_bundle"), "--binstubs", filepath.Join(s.Stager.DepDir(), "binstubs")}
 	if exists, err := libbuildpack.FileExists(gemfileLock); err != nil {
 		return err
 	} else if exists {
-		args = append(args, "--deployment")
+		args = append(args, "--deployment", "--local")
 	}
 
 	version := s.Manifest.AllDependencyVersions("bundler")
